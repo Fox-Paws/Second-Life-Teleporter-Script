@@ -1,5 +1,11 @@
 # Second-Life-Teleporter-Script
-Second Life is an online game/community where users interact with each other and have avatars which they can customize and use to move around the 3D world. There are objects which transport users and their avatars great distances quickly, which this pairing of scripts innovates.
+Second Life is an online game/community where users interact with each other and have avatars which they can customize and use to move around the 3D world. 
+
+Second Life has its own scripting language called Linden Scripting Language, or LSL, which allows users to create their own code to perform a myriad of functions.
+
+Users have used this scripting language to objects in Second Life which transport users and their avatars great distances quickly, which this pairing of scripts innovates.
+
+
 
 Teleporters in Second Life are primitive objects which a user clicks to "sit" on the object, followed by the object blinking to the destination, kicking the user off the teleporter, then blinking back to its original location.
 For teleporters to have multiple destinations, multiple primitive objects (usually in the form of 3D cubes with the name and pictures of the destination on it) are often used, with one object having one destination.
