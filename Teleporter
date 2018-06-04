@@ -1,0 +1,247 @@
+warp_pos( vector destpos ) 
+ {   //R&D by Keknehv Psaltery, 05/25/2006
+     //with a little poking by Strife, and a bit more
+     //some more munging by Talarus Luan
+     //Final cleanup by Keknehv Psaltery
+     //Changed jump value to 411 (4096 ceiling) by Jesse Barnett
+     // Compute the number of jumps necessary
+     integer jumps = (integer)(llVecDist(destpos, llGetPos()) / 10.0) + 1;
+     // Try and avoid stack/heap collisions
+     if (jumps > 411)
+         jumps = 411;
+     list rules = [ PRIM_POSITION, destpos ];  //The start for the rules list
+     integer count = 1;
+     while ( ( count = count << 1 ) < jumps)
+         rules = (rules=[]) + rules + rules;   //should tighten memory use.
+     llSetPrimitiveParams( rules + llList2List( rules, (count - jumps) << 1, count) );
+     if ( llVecDist( llGetPos(), destpos ) > .001 ) //Failsafe
+         while ( --jumps ) 
+             llSetPos( destpos );
+} 
+
+vector TPFrom;
+vector TPTo;
+string FLOAT_TEXT = "";
+vector FLOAT_COLOR=<1, 1, 1>; // Text Color
+float  FLOAT_ALPHA=1.0;  //Text transparency.
+integer SRChan;
+integer CkTime = 60;
+integer x;
+integer y;
+integer ident;
+integer unsit;
+key Config;
+key Messages;
+key texture1;
+key texture2;
+integer ConfigLine = 2;
+integer Pos;
+ 
+default
+{
+    on_rez(integer start_param)
+    {
+        llResetScript();
+    }
+    state_entry()
+    {
+        Config = llGetNotecardLine("Config",0);
+    }
+    dataserver(key query_id,string data)
+    {
+        if (query_id == Config)
+        {
+            ident = (integer) data;
+            state Read;
+        }
+    }
+}
+state Read
+{
+    state_entry()
+    {
+        Config = llGetNotecardLine("Config",ConfigLine);
+    }
+     dataserver(key query_id, string data) 
+     { 
+        if (query_id == Config) 
+        {    
+            if (data == EOF || data == "")
+            llOwnerSay("Not all teleports will be functional. If this is a mistake, please make sure you are formatting the notecard correctly, using the example given.");
+            else 
+            {
+                if (ConfigLine == 2)
+                {
+                    x = (integer) data;
+                    ConfigLine++;
+                    Config = llGetNotecardLine("Config",ConfigLine);
+                }
+                else if (ConfigLine == 3)
+                {
+                    y = (integer) data;
+                    ConfigLine++;
+                    Config = llGetNotecardLine("Config",ConfigLine);
+                }
+                if (ConfigLine ==4)
+                {
+                    llOwnerSay("There will be " + (string) x + " columns and " + (string) y + " rows.");
+llOwnerSay("Your teleporter is now ready for use.");
+                    state ready;
+                }
+            }
+        }
+    }
+}
+state ready
+{
+    state_entry()
+    {
+        llSetClickAction(CLICK_ACTION_TOUCH);
+        llSetSitText("Sit here");
+        llSitTarget(<0.0,0.0,0.0>, ZERO_ROTATION);
+    }
+    touch_start(integer total_number)
+    {
+        if (llDetectedTouchFace(0) == -1)
+            llOwnerSay("You are using an old client version, or yours does not support TouchFace.");
+        else
+        {
+            if (llDetectedTouchFace(0) == 1)
+            {
+            vector pos = llDetectedTouchST(0);
+            Pos = ((llFloor((pos.x*10)*x)/10)*(integer)y)+llCeil(pos.y*y);
+            if (ident == Pos)
+            {
+            llSay(0,"You are already at this location.");
+            state ready;
+        }
+            state selecttp;
+            }
+        }
+    }
+        changed(integer change)
+        {
+            if (change & CHANGED_INVENTORY)
+            {
+                llResetScript();
+            }
+            integer links = 0;
+            if (llGetObjectPrimCount(llGetKey()) == (links = llGetNumberOfPrims()));
+            {
+            unsit = 0;
+            if(change & CHANGED_LINK)
+            {
+                links = 0;
+                if(llGetObjectPrimCount(llGetKey()) < (links = llGetNumberOfPrims()))
+                {
+                    llUnSit(llGetLinkKey(links));
+                    if (unsit == 0)
+                    {
+                        llSay(0,"Please choose a destination before sitting.");
+                        unsit += 1;
+                    }
+                }
+            }
+            }
+        }
+    
+}
+state selecttp
+{
+    state_entry()
+    {
+        Config = llGetNotecardLine("Config",(ConfigLine+ (Pos-1)));
+    }
+    dataserver(key query_id, string data)
+    {
+        if (query_id == Config)
+        SRChan = (integer) data;
+        state Textsay;
+}
+}
+state Textsay
+{
+    state_entry()
+    {
+        Messages = llGetNotecardLine("Messages",Pos-1);
+    }
+    dataserver(key query_id, string data)
+    {
+        if (query_id = Messages)
+        {
+            llSay(0,(string)data);
+            state Teleport;
+        }
+    }
+}
+state Teleport
+{
+    state_entry() 
+    {
+        if (SRChan != (integer) "")
+        {
+        llListen(SRChan,"","","");
+        llSitTarget(<0.0, 0.0, 1.0>, ZERO_ROTATION);
+        llSetTimerEvent(10.0);
+        llRegionSay(SRChan, "location");
+        }
+        else
+        state ready;
+}
+    listen(integer channel, string name, key id, string msg)
+    {
+        if(name == llGetObjectName())
+        {
+            llSetClickAction(CLICK_ACTION_SIT);
+            llSetSitText("Teleport");
+            TPFrom = llGetPos();
+            TPTo = (vector) msg;
+        }
+        if(msg == "locate all")
+        {
+            TPFrom = llGetPos();
+        }
+    }
+    
+    changed(integer change)
+    {
+        if (change & CHANGED_LINK)
+        {
+            llSetTimerEvent(0.0);
+            TPFrom = llGetPos();
+            key av = llAvatarOnSitTarget();
+            if (av != NULL_KEY && TPTo != <0,0,0>)
+            {
+                texture1 = llGetTexture(1);
+                texture2 = llGetTexture(2);
+                llSetTexture("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903",ALL_SIDES);
+                warp_pos(TPTo);
+                llUnSit(av);
+                warp_pos(TPFrom);
+                llSetTexture(texture2,ALL_SIDES);
+                llSetTexture(texture1,1);
+                llSetSitText("Sit Here");
+                state ready;
+            } else if (av != NULL_KEY) {
+                llUnSit(av);
+                llSay(0, "No Destination Available");
+                state ready;
+            }
+            llSetTimerEvent(60.0);
+        }
+    }
+    timer()
+    {
+        if(TPTo == <0,0,0> && CkTime <= 0)
+        {
+            llRegionSay(SRChan, "location");
+            CkTime = 60;
+        } else if(TPFrom != llGetPos() && CkTime <= 0) {
+            TPFrom != llGetPos();
+            CkTime = 60;
+        } else if(TPTo == <0,0,0> || TPFrom != llGetPos()) {
+            CkTime -= 1;
+        }
+        llSleep(0.01);
+    }
+}
