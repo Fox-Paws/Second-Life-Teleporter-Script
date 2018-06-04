@@ -1,0 +1,106 @@
+integer floor = 1;
+integer SRChan;
+integer iLine;
+key Config;
+vector Location;
+vector vector1;
+vector offset = <0,0,0>;
+default
+{
+    on_rez(integer start_param)
+    {
+        llResetScript();
+    }
+    state_entry()
+    {
+        llOwnerSay("Reading Config...");
+        Config = llGetNotecardLine("Config",0);
+    }
+    dataserver(key query_id, string data)
+    {
+        if (query_id == Config)
+        {
+            iLine = (integer) data;
+            state tpoffset;
+        }
+    }
+}
+state tpoffset
+{
+    state_entry()
+    {
+        Config = llGetNotecardLine("Config",1);
+    }
+    dataserver(key query_id, string data)
+    {
+        if (query_id == Config)
+        {
+            vector1 = (vector)data;
+            state channelnumber;
+        }
+    }
+}
+state channelnumber
+{
+    state_entry()
+    {
+        Config = llGetNotecardLine("Config", (iLine + 3));
+    }
+ 
+    dataserver(key query_id, string data) {
+ 
+        if (query_id == Config) {    
+            if (data == "") {    
+                llOwnerSay("No channel was set. Open the instructions notecard in the folder you recieved when you bought this product.");
+            } 
+            else 
+            {
+                SRChan = (integer) data;
+                llOwnerSay("This target will operate on channel " + (string) SRChan + ".");
+                state ready;
+            }
+        }
+    }
+}
+state ready
+{
+    state_entry()
+    {
+        llOwnerSay("Your teleport target is now functional.");
+        llListen(SRChan, "", "", "");
+        Location = llGetPos();
+        llRegionSay(SRChan, (string)Location);
+        llSetTimerEvent(1.0);
+    }
+    listen(integer chan, string name, key id, string msg)
+    {
+        offset = <0,0,0>;
+        if((vector)vector1 != <0,0,0>) offset = (vector)vector1;
+        if(name == llGetObjectName() && msg == "location")
+        {
+            Location = llGetPos()+offset;
+            llRegionSay(SRChan, (string)Location);
+        }
+        if(msg == "locate all")
+        {
+            Location = llGetPos()+offset;
+            llRegionSay(SRChan, (string)Location);
+        }
+    }
+    timer()
+    {
+        offset = <0,0,0>;
+        if((vector)vector1 != <0,0,0>) offset = (vector)vector1;
+        if(Location != llGetPos()+offset)
+        {
+            Location = llGetPos()+offset;
+            llRegionSay(SRChan, (string)Location);
+        }
+        llSetTimerEvent(60.0);
+    }
+    changed(integer change)
+    {
+        if (change & CHANGED_INVENTORY)
+            llResetScript();
+    }
+}
